@@ -1,0 +1,94 @@
+import streamlit as st
+import subprocess
+import os
+from pathlib import Path
+
+# ---------------------------- UI Setup ----------------------------
+st.set_page_config(page_title="Python Tools Dashboard", layout="wide")
+
+# Header
+st.markdown("<h1 style='text-align: center; color: #4CAF50;'>Python Tools Dashboard</h1>", unsafe_allow_html=True)
+
+# Sidebar categories
+st.sidebar.title("Tool Categories")
+category = st.sidebar.radio("Select a Category", ["Normal Tools", "Power Tools"])
+
+# Define tools for each category
+TOOLS = {
+    "Normal Tools": {
+        "Compress PDF": "tools/normal/PDF size compressor.py",
+        "PDF to Word": "tools/normal/PDF to Word.py",
+    },
+    "Power Tools": {
+        "TDS Challan Extractor": "tools/power/TDS Challans Extractor.py",
+        "ESI Challan Extractor": "tools/power/ESI Challan Extractor.py",
+    }
+}
+
+# ---------------------------- Tool Selection ----------------------------
+if category:
+    st.subheader(f"{category} 🛠️")
+
+cols = st.columns(2)  # Display tools in two columns
+index = 0
+
+for tool_name, script in TOOLS[category].items():
+    col = cols[index % 2]  # Alternate between columns
+
+    with col:
+        st.write(f"### {tool_name}")
+
+        # File Upload Option
+        uploaded_file = st.file_uploader(f"Upload file for {tool_name}", type=["csv", "xlsx", "txt", "json"])
+
+        # Folder Input (Text Box for Save Path)
+        save_path = st.text_input(f"Enter save path for {tool_name} (Leave empty to save in Downloads)")
+
+        # Custom Input
+        custom_input = st.text_input(f"Additional input for {tool_name}")
+
+        # Run Button
+        if st.button(f"Run {tool_name}"):
+            try:
+                # Determine save location
+                if save_path:
+                    os.makedirs(save_path, exist_ok=True)
+                else:
+                    save_path = str(Path.home() / "Downloads")  # Default: Downloads folder
+
+                # Save uploaded file
+                file_path = ""
+                if uploaded_file:
+                    file_path = os.path.join(save_path, uploaded_file.name)
+                    with open(file_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                    st.success(f"File saved to: {file_path}")
+
+                # Construct command
+                cmd = ["python", script]
+                if file_path:
+                    cmd.append(file_path)
+                if custom_input:
+                    cmd.append(custom_input)
+
+                # Run the script
+                result = subprocess.run(cmd, capture_output=True, text=True)
+
+                # Display result
+                st.subheader(f"Output of {tool_name}")
+                st.text_area("Result", result.stdout)
+                if result.stderr:
+                    st.error(result.stderr)
+
+                # Provide download button
+                if uploaded_file:
+                    with open(file_path, "rb") as file:
+                        st.download_button(
+                            label="Download Processed File",
+                            data=file,
+                            file_name=uploaded_file.name
+                        )
+            except Exception as e:
+                st.error(f"Error running {script}: {e}")
+
+    index += 1
